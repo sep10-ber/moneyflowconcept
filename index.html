@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>돈의 흐름 - 인터랙티브 지출 분석 원리</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: white;
+            color: #374151;
+            overflow-x: hidden;
+        }
+        
+        .container {
+            min-height: 100vh;
+            background-color: white;
+        }
+        
+        .steps-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 2rem;
+            gap: 2rem;
+            padding-top: 2rem;
+        }
+        
+        .step {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            border-radius: 9999px;
+            transition: all 0.5s;
+            border: 1px solid transparent;
+        }
+        
+        .step.active-red {
+            background-color: #fef2f2;
+            color: #b91c1c;
+            border-color: #fecaca;
+        }
+        
+        .step.active-orange {
+            background-color: #fff7ed;
+            color: #c2410c;
+            border-color: #fed7aa;
+        }
+        
+        .step.active-green {
+            background-color: #f0fdf4;
+            color: #166534;
+            border-color: #bbf7d0;
+        }
+        
+        .step.inactive {
+            background-color: #f3f4f6;
+            color: #6b7280;
+        }
+        
+        .step-number {
+            width: 1.5rem;
+            height: 1.5rem;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            font-weight: bold;
+            color: white;
+        }
+        
+        .step-number.red { background-color: #ef4444; }
+        .step-number.orange { background-color: #f97316; }
+        .step-number.green { background-color: #22c55e; }
+        .step-number.gray { background-color: #9ca3af; }
+        
+        .reset-btn {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 0.75rem;
+            background-color: #f3f4f6;
+            color: #6b7280;
+            border: 1px solid #d1d5db;
+            border-radius: 9999px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+        
+        .reset-btn:hover {
+            background-color: #e5e7eb;
+            color: #374151;
+            border-color: #9ca3af;
+        }
+        
+        .svg-container {
+            display: flex;
+            justify-content: center;
+            position: relative;
+        }
+        
+        .node-circle {
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .node-circle:hover {
+            filter: drop-shadow(0 0 8px rgba(239, 68, 68, 0.4));
+        }
+        
+        .connection-line {
+            transition: all 0.7s;
+        }
+        
+        .solution-panel {
+            position: fixed;
+            bottom: 2rem;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 24rem;
+            max-width: 90vw;
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            animation: slideUp 0.5s ease-out;
+            z-index: 50;
+        }
+        
+        .solution-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+        
+        .solution-content {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        
+        .solution-card {
+            background-color: #fef2f2;
+            border: 1px solid #fecaca;
+            border-radius: 0.5rem;
+            padding: 1rem;
+        }
+        
+        .solution-details {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 0.75rem;
+        }
+        
+        .solution-left {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+        
+        .solution-action {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .solution-right {
+            text-align: right;
+        }
+        
+        .savings-amount {
+            font-weight: bold;
+            font-size: 1.125rem;
+            color: #059669;
+        }
+        
+        .savings-period {
+            font-size: 0.875rem;
+            color: #6b7280;
+        }
+        
+        .solution-tip {
+            font-size: 0.75rem;
+            color: #6b7280;
+            background: white;
+            padding: 0.5rem;
+            border-radius: 0.25rem;
+        }
+        
+        .solution-btn {
+            width: 100%;
+            background-color: #dc2626;
+            color: white;
+            font-weight: 500;
+            padding: 0.75rem 1rem;
+            border-radius: 0.5rem;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+        
+        .solution-btn:hover {
+            background-color: #b91c1c;
+        }
+        
+        .usage-guide {
+            text-align: center;
+            margin: 2rem 0 3rem;
+        }
+        
+        .usage-text {
+            color: #6b7280;
+            font-size: 0.875rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .analysis-text {
+            color: #ef4444;
+            font-size: 0.875rem;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateX(-50%) translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(-50%) translateY(0);
+            }
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        @keyframes ping {
+            75%, 100% {
+                transform: scale(2);
+                opacity: 0;
+            }
+        }
+        
+        @keyframes bounce {
+            0%, 100% {
+                transform: translateY(-25%);
+                animation-timing-function: cubic-bezier(0.8, 0, 1, 1);
+            }
+            50% {
+                transform: translateY(0);
+                animation-timing-function: cubic-bezier(0, 0, 0.2, 1);
+            }
+        }
+        
+        .animate-ping {
+            animation: ping 1s cubic-bezier(0, 0, 0.2, 1) infinite;
+        }
+        
+        .animate-bounce {
+            animation: bounce 1s infinite;
+        }
+        
+        .animate-pulse {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 인터랙션 단계 표시 -->
+        <div class="steps-container">
+            <div id="step1" class="step inactive">
+                <span class="step-number gray">1</span>
+                <span>탐색 (Explore)</span>
+            </div>
+            <div id="step2" class="step inactive">
+                <span class="step-number gray">2</span>
+                <span>발견 (Discover)</span>
+            </div>
+            <div id="step3" class="step inactive">
+                <span class="step-number gray">3</span>
+                <span>해결 (Solve)</span>
+            </div>
+            
+            <!-- 리셋 버튼 -->
+            <button id="reset-btn" class="reset-btn" style="display: none;" title="처음 상태로 돌아가기">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                    <path d="M3 3v5h5"/>
+                </svg>
+                <span>초기화</span>
+            </button>
+        </div>
+
+        <!-- 메인 시각화 영역 -->
+        <div class="svg-container">
+            <svg width="800" height="600" style="max-width: 100%; height: auto;">
+                <!-- 배경 그라데이션 -->
+                <defs>
+                    <radialGradient id="bgGradient" cx="50%" cy="50%" r="50%">
+                        <stop offset="0%" stop-color="rgba(156, 163, 175, 0.03)" />
+                        <stop offset="100%" stop-color="rgba(255, 255, 255, 0)" />
+                    </radialGradient>
+                    <filter id="glow">
+                        <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+                        <feMerge> 
+                            <feMergeNode in="coloredBlur"/>
+                            <feMergeNode in="SourceGraphic"/>
+                        </feMerge>
+                    </filter>
+                    <!-- 화살표 마커 정의 -->
+                    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                        <polygon points="0 0, 10 3.5, 0 7" fill="#dc2626" />
+                    </marker>
+                    <marker id="arrowhead-inactive" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                        <polygon points="0 0, 10 3.5, 0 7" fill="#9ca3af" />
+                    </marker>
+                </defs>
+
+                <circle cx="400" cy="300" r="200" fill="url(#bgGradient)" />
+
+                <!-- 연결선들 -->
+                <g id="connections"></g>
+
+                <!-- 노드들 -->
+                <g id="nodes"></g>
+            </svg>
+        </div>
+
+        <!-- 사용 안내 -->
+        <div class="usage-guide">
+            <p id="usage-text" class="usage-text">💡 지출 항목을 클릭해서 상세 내역과 절약 방법을 확인해보세요</p>
+            <p id="analysis-text" class="analysis-text" style="display: none;"></p>
+        </div>
+
+        <!-- 솔루션 패널 -->
+        <div id="solution-panel" class="solution-panel" style="display: none;"></div>
+    </div>
+
+    <script>
+        // 상태 관리
+        let state = {
+            selectedNode: null,
+            discoveryPhase: 0,
+            showSolution: false,
+            animationStep: 0
+        };
+
+        // 노드 데이터
+        const nodes = [
+            { 
+                id: 'center', x: 400, y: 300, size: 60, 
+                label: '월 총 지출', amount: '3,245,600원', type: 'center',
+                detail: '2025년 1월'
+            },
+            { 
+                id: 'home', x: 200, y: 150, size: 50, 
+                label: '주거비', amount: '1,200,000원', type: 'major',
+                detail: 'KB국민은행 ****-2847',
+                subDetails: ['월세 100만원', '관리비 20만원']
+            },
+            { 
+                id: 'food', x: 600, y: 150, size: 45, 
+                label: '식비', amount: '856,200원', type: 'major',
+                detail: '신한카드 ****-1234',
+                subDetails: ['외식 52만원', '마트 24만원', '배달 11만원']
+            },
+            { 
+                id: 'transport', x: 150, y: 380, size: 40, 
+                label: '교통비', amount: '485,300원', type: 'regular',
+                detail: '현대카드 ****-5678',
+                subDetails: ['주유비 32만원', '지하철 8만원', '택시 6만원']
+            },
+            { 
+                id: 'shopping', x: 650, y: 380, size: 35, 
+                label: '쇼핑', amount: '324,800원', type: 'regular',
+                detail: '삼성카드 ****-9012',
+                subDetails: ['의류 18만원', '온라인 12만원']
+            },
+            { 
+                id: 'phone', x: 280, y: 480, size: 30, 
+                label: '통신비', amount: '89,500원', type: 'small',
+                detail: 'SKT 자동이체',
+                subDetails: ['요금제 6.5만원', '부가서비스 2.4만원'],
+                inefficient: true
+            },
+            { 
+                id: 'utility', x: 520, y: 480, size: 30, 
+                label: '공과금', amount: '156,800원', type: 'small',
+                detail: '우리은행 ****-7890',
+                subDetails: ['전기료 8만원', '가스료 5만원', '수도료 2만원'],
+                inefficient: true
+            }
+        ];
+
+        // 연결선 데이터
+        const connections = [
+            { from: 'center', to: 'home', strength: 3 },
+            { from: 'center', to: 'food', strength: 2.5 },
+            { from: 'center', to: 'transport', strength: 1.5 },
+            { from: 'center', to: 'shopping', strength: 1 },
+            { from: 'center', to: 'phone', strength: 0.5 },
+            { from: 'center', to: 'utility', strength: 0.5 }
+        ];
+
+        // 유틸리티 함수들
+        function calculateLinePoints(fromNode, toNode) {
+            const dx = toNode.x - fromNode.x;
+            const dy = toNode.y - fromNode.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            const unitX = dx / distance;
+            const unitY = dy / distance;
+            
+            const startX = fromNode.x + unitX * fromNode.size;
+            const startY = fromNode.y + unitY * fromNode.size;
+            const endX = toNode.x - unitX * toNode.size;
+            const endY = toNode.y - unitY * toNode.size;
+            
+            return { startX, startY, endX, endY };
+        }
+
+        function isConnectionActive(connection) {
+            return state.selectedNode && (connection.from === state.selectedNode || connection.to === state.selectedNode);
+        }
+
+        function isNodeHighlighted(node) {
+            if (!state.selectedNode) return false;
+            if (node.id === state.selectedNode) return true;
+            return connections.some(conn => 
+                (conn.from === state.selectedNode && conn.to === node.id) ||
+                (conn.to === state.selectedNode && conn.from === node.id)
+            );
+        }
+
+        // 노드 클릭 핸들러
+        function handleNodeClick(nodeId) {
+            state.selectedNode = nodeId;
+            state.discoveryPhase = 0;
+            state.showSolution = false;
+            state.animationStep++;
+            
+            updateUI();
+            startAnimationSequence();
+        }
+
+        // 리셋 핸들러
+        function handleReset() {
+            state.selectedNode = null;
+            state.discoveryPhase = 0;
+            state.showSolution = false;
+            state.animationStep = 0;
+            
+            updateUI();
+        }
+
+        // 애니메이션 시퀀스
+        function startAnimationSequence() {
+            if (state.selectedNode && state.selectedNode !== 'center') {
+                setTimeout(() => {
+                    state.discoveryPhase = 1;
+                    updateUI();
+                }, 1000);
+                
+                setTimeout(() => {
+                    state.discoveryPhase = 2;
+                    updateUI();
+                }, 2500);
+                
+                setTimeout(() => {
+                    state.showSolution = true;
+                    updateUI();
+                }, 3500);
+            }
+        }
+
+        // UI 업데이트
+        function updateUI() {
+            updateSteps();
+            updateNodes();
+            updateConnections();
+            updateSolutionPanel();
+            updateUsageGuide();
+            updateResetButton();
+        }
+
+        function updateSteps() {
+            const step1 = document.getElementById('step1');
+            const step2 = document.getElementById('step2');
+            const step3 = document.getElementById('step3');
+            
+            // Step 1
+            if (state.selectedNode) {
+                step1.className = 'step active-red';
+                step1.querySelector('.step-number').className = 'step-number red';
+            } else {
+                step1.className = 'step inactive';
+                step1.querySelector('.step-number').className = 'step-number gray';
+            }
+            
+            // Step 2
+            if (state.discoveryPhase >= 1) {
+                step2.className = 'step active-orange';
+                step2.querySelector('.step-number').className = 'step-number orange';
+            } else {
+                step2.className = 'step inactive';
+                step2.querySelector('.step-number').className = 'step-number gray';
+            }
+            
+            // Step 3
+            if (state.showSolution) {
+                step3.className = 'step active-green';
+                step3.querySelector('.step-number').className = 'step-number green';
+            } else {
+                step3.className = 'step inactive';
+                step3.querySelector('.step-number').className = 'step-number gray';
+            }
+        }
+
+        function updateResetButton() {
+            const resetBtn = document.getElementById('reset-btn');
+            resetBtn.style.display = state.selectedNode ? 'flex' : 'none';
+        }
+
+        function updateConnections() {
+            const connectionsGroup = document.getElementById('connections');
+            connectionsGroup.innerHTML = '';
+            
+            connections.forEach(connection => {
+                const fromNode = nodes.find(n => n.id === connection.from);
+                const toNode = nodes.find(n => n.id === connection.to);
+                const isActive = isConnectionActive(connection);
+                const { startX, startY, endX, endY } = calculateLinePoints(fromNode, toNode);
+                
+                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line.setAttribute('x1', startX);
+                line.setAttribute('y1', startY);
+                line.setAttribute('x2', endX);
+                line.setAttribute('y2', endY);
+                line.setAttribute('stroke', isActive ? '#dc2626' : '#9ca3af');
+                line.setAttribute('stroke-width', isActive ? connection.strength * 2 : connection.strength);
+                line.setAttribute('opacity', isActive ? 1 : 0.5);
+                line.setAttribute('marker-end', isActive ? 'url(#arrowhead)' : 'url(#arrowhead-inactive)');
+                line.className = 'connection-line';
+                
+                if (isActive) {
+                    line.setAttribute('filter', 'url(#glow)');
+                }
+                
+                connectionsGroup.appendChild(line);
+            });
+        }
+
+        function updateNodes() {
+            const nodesGroup = document.getElementById('nodes');
+            nodesGroup.innerHTML = '';
+            
+            nodes.forEach(node => {
+                const isHighlighted = isNodeHighlighted(node);
+                const isInefficient = node.inefficient && state.discoveryPhase >= 1;
+                const showWarningBorder = node.inefficient && (isHighlighted || isInefficient);
+                
+                const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                
+                // 노드 배경 원
+                const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                circle.setAttribute('cx', node.x);
+                circle.setAttribute('cy', node.y);
+                circle.setAttribute('r', node.size);
+                circle.setAttribute('fill', isInefficient ? '#dc2626' : '#e5e7eb');
+                circle.setAttribute('stroke', '#d1d5db');
+                circle.setAttribute('stroke-width', isHighlighted ? 4 : 1);
+                circle.setAttribute('opacity', 0.9);
+                circle.className = 'node-circle';
+                circle.style.strokeWidth = isHighlighted ? '4px' : '1px';
+                circle.style.stroke = isHighlighted ? '#dc2626' : '#d1d5db';
+                circle.onclick = () => handleNodeClick(node.id);
+                
+                if (isHighlighted) {
+                    circle.setAttribute('filter', 'url(#glow)');
+                }
+                
+                g.appendChild(circle);
+                
+                // 경고 보더
+                if (showWarningBorder) {
+                    const warningBorder = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                    warningBorder.setAttribute('cx', node.x);
+                    warningBorder.setAttribute('cy', node.y);
+                    warningBorder.setAttribute('r', node.size + 8);
+                    warningBorder.setAttribute('fill', 'none');
+                    warningBorder.setAttribute('stroke', '#dc2626');
+                    warningBorder.setAttribute('stroke-width', 2);
+                    warningBorder.setAttribute('stroke-dasharray', '5,3');
+                    warningBorder.setAttribute('opacity', 0.8);
+                    warningBorder.className = 'animate-pulse';
+                    g.appendChild(warningBorder);
+                }
+                
+                // 비효율 알림 애니메이션
+                if (isInefficient) {
+                    const pingCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                    pingCircle.setAttribute('cx', node.x);
+                    pingCircle.setAttribute('cy', node.y);
+                    pingCircle.setAttribute('r', node.size + 10);
+                    pingCircle.setAttribute('fill', 'none');
+                    pingCircle.setAttribute('stroke', '#dc2626');
+                    pingCircle.setAttribute('stroke-width', 3);
+                    pingCircle.setAttribute('opacity', 0);
+                    pingCircle.className = 'animate-ping';
+                    g.appendChild(pingCircle);
+                }
+                
+                // 노드 내부 텍스트
+                const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                text.setAttribute('x', node.x);
+                text.setAttribute('y', node.y + 2);
+                text.setAttribute('text-anchor', 'middle');
+                text.setAttribute('font-weight', 'bold');
+                text.setAttribute('font-size', node.type === 'center' ? '14' : '12');
+                text.setAttribute('fill', isInefficient ? 'white' : '#4b5563');
+                
+                let displayText = '';
+                if (node.type === 'center') {
+                    displayText = '총지출';
+                } else {
+                    if (node.detail.includes('카드')) displayText = node.detail.split(' ')[0];
+                    else if (node.detail.includes('은행')) displayText = node.detail.split(' ')[0];
+                    else if (node.detail.includes('SKT')) displayText = 'SKT';
+                    else displayText = node.detail.split(' ')[0];
+                }
+                text.textContent = displayText;
+                g.appendChild(text);
+                
+                // 라벨
+                const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                label.setAttribute('x', node.x);
+                label.setAttribute('y', node.y + node.size + 18);
+                label.setAttribute('text-anchor', 'middle');
+                label.setAttribute('font-size', '14');
+                label.setAttribute('font-weight', 'bold');
+                label.setAttribute('fill', '#374151');
+                label.textContent = node.label;
+                g.appendChild(label);
+                
+                // 금액
+                const amount = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                amount.setAttribute('x', node.x);
+                amount.setAttribute('y', node.y + node.size + 32);
+                amount.setAttribute('text-anchor', 'middle');
+                amount.setAttribute('font-size', '14');
+                amount.setAttribute('font-weight', 'bold');
+                amount.setAttribute('fill', isHighlighted ? '#dc2626' : '#6b7280');
+                amount.textContent = node.amount;
+                g.appendChild(amount);
+                
+                // 세부 정보
+                const detail = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                detail.setAttribute('x', node.x);
+                detail.setAttribute('y', node.y + node.size + 46);
+                detail.setAttribute('text-anchor', 'middle');
+                detail.setAttribute('font-size', '12');
+                detail.setAttribute('fill', '#6b7280');
+                detail.textContent = node.detail;
+                g.appendChild(detail);
+                
+                // 하이라이트 시 추가 세부 정보
+                if (isHighlighted && node.subDetails) {
+                    node.subDetails.forEach((subDetail, idx) => {
+                        const subText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                        subText.setAttribute('x', node.x);
+                        subText.setAttribute('y', node.y + node.size + 64 + (idx * 14));
+                        subText.setAttribute('text-anchor', 'middle');
+                        subText.setAttribute('font-size', '12');
+                        subText.setAttribute('font-weight', '500');
+                        subText.setAttribute('fill', '#dc2626');
+                        subText.textContent = `• ${subDetail}`;
+                        g.appendChild(subText);
+                    });
+                }
+                
+                // 경고 아이콘
+                if (isInefficient) {
+                    const warningIcon = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                    warningIcon.innerHTML = '<path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" fill="none" stroke="#fbbf24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
+                    const foreignObject = document.createElementNS('http://www.w3.org/2000/svg', 'foreignObject');
+                    foreignObject.setAttribute('x', node.x + node.size - 8);
+                    foreignObject.setAttribute('y', node.y - node.size + 8);
+                    foreignObject.setAttribute('width', 16);
+                    foreignObject.setAttribute('height', 16);
+                    foreignObject.innerHTML = '<div style="color: #f59e0b; animation: bounce 1s infinite;">⚠️</div>';
+                    g.appendChild(foreignObject);
+                }
+                
+                nodesGroup.appendChild(g);
+            });
+        }
+
+        function updateSolutionPanel() {
+            const panel = document.getElementById('solution-panel');
+            
+            if (state.showSolution && state.selectedNode) {
+                panel.style.display = 'block';
+                
+                let content = `
+                    <div class="solution-header">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#f97316" stroke-width="2">
+                            <path d="M9 12l2 2 4-4"/>
+                            <path d="M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 0 1-1.043 3.296 3.745 3.745 0 0 1-3.296 1.043A3.745 3.745 0 0 1 12 21c-1.268 0-2.39-.63-3.068-1.593a3.745 3.745 0 0 1-3.296-1.043 3.745 3.745 0 0 1-1.043-3.296A3.745 3.745 0 0 1 3 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 0 1 1.043-3.296 3.745 3.745 0 0 1 3.296-1.043A3.745 3.745 0 0 1 12 3c1.268 0 2.39.63 3.068 1.593a3.745 3.745 0 0 1 3.296 1.043 3.745 3.745 0 0 1 1.043 3.296A3.745 3.745 0 0 1 21 12z"/>
+                        </svg>
+                        <h3 style="font-size: 1.125rem; font-weight: bold; color: #374151;">💡 스마트 제안</h3>
+                    </div>
+                    <div class="solution-content">
+                `;
+                
+                if (state.selectedNode === 'phone') {
+                    content += `
+                        <p style="color: #6b7280;"><strong>SKT 자동이체</strong> 요금이 유사 서비스 대비 26% 높습니다</p>
+                        <div class="solution-card">
+                            <div class="solution-details">
+                                <div class="solution-left">
+                                    <div class="solution-action">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2">
+                                            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+                                        </svg>
+                                        <span style="font-weight: 500; color: #374151;">알뜰폰으로 변경</span>
+                                    </div>
+                                    <div style="font-size: 0.875rem; color: #6b7280;">현재: SKT 5G 프리미어 → 제안: KT 알뜰폰 5G</div>
+                                </div>
+                                <div class="solution-right">
+                                    <div class="savings-amount">-23,000원/월</div>
+                                    <div class="savings-period">연간 276,000원 절약</div>
+                                </div>
+                            </div>
+                            <div class="solution-tip">💡 동일 데이터 제공, 통화품질 99% 동일</div>
+                        </div>
+                        <button class="solution-btn">
+                            <span>알뜰폰 신청하기</span>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M5 12h14m-7-7 7 7-7 7"/>
+                            </svg>
+                        </button>
+                    `;
+                } else if (state.selectedNode === 'utility') {
+                    content += `
+                        <p style="color: #6b7280;"><strong>우리은행 ****-7890</strong> 계좌의 전기료가 누진세 3단계입니다</p>
+                        <div class="solution-card">
+                            <div class="solution-details">
+                                <div class="solution-left">
+                                    <div class="solution-action">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2">
+                                            <path d="M9 12l2 2 4-4"/>
+                                            <path d="M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 0 1-1.043 3.296 3.745 3.745 0 0 1-3.296 1.043A3.745 3.745 0 0 1 12 21c-1.268 0-2.39-.63-3.068-1.593a3.745 3.745 0 0 1-3.296-1.043 3.745 3.745 0 0 1-1.043-3.296A3.745 3.745 0 0 1 3 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 0 1 1.043-3.296 3.745 3.745 0 0 1 3.296-1.043A3.745 3.745 0 0 1 12 3c1.268 0 2.39.63 3.068 1.593a3.745 3.745 0 0 1 3.296 1.043 3.745 3.745 0 0 1 1.043 3.296A3.745 3.745 0 0 1 21 12z"/>
+                                        </svg>
+                                        <span style="font-weight: 500; color: #374151;">에너지 요금 최적화</span>
+                                    </div>
+                                    <div style="font-size: 0.875rem; color: #6b7280;">전기료 누진세 3단계 → 2단계로 절약</div>
+                                </div>
+                                <div class="solution-right">
+                                    <div class="savings-amount">-34,500원/월</div>
+                                    <div class="savings-period">연간 414,000원 절약</div>
+                                </div>
+                            </div>
+                            <div class="solution-tip">💡 스마트 플러그 + 시간대별 요금제 변경</div>
+                        </div>
+                        <button class="solution-btn">
+                            <span>에너지 절약 플랜 시작하기</span>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M5 12h14m-7-7 7 7-7 7"/>
+                            </svg>
+                        </button>
+                    `;
+                } else if (state.selectedNode === 'home') {
+                    content += `
+                        <p style="color: #6b7280;"><strong>KB국민은행 ****-2847</strong> 월세 관련 세액공제 미신청 상태</p>
+                        <div class="solution-card">
+                            <div class="solution-details">
+                                <div class="solution-left">
+                                    <div class="solution-action">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2">
+                                            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                                            <polyline points="9,22 9,12 15,12 15,22"/>
+                                        </svg>
+                                        <span style="font-weight: 500; color: #374151;">월세 세액공제 신청</span>
+                                    </div>
+                                    <div style="font-size: 0.875rem; color: #6b7280;">연 소득 7천만원 이하 → 월세 750만원 한도 12% 공제</div>
+                                </div>
+                                <div class="solution-right">
+                                    <div class="savings-amount">-90,000원/년</div>
+                                    <div class="savings-period">세금 환급</div>
+                                </div>
+                            </div>
+                            <div class="solution-tip">💡 홈택스에서 5분 만에 신청 완료 가능</div>
+                        </div>
+                        <button class="solution-btn">
+                            <span>홈택스에서 신청하기</span>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M5 12h14m-7-7 7 7-7 7"/>
+                            </svg>
+                        </button>
+                    `;
+                }
+                
+                content += `</div>`;
+                panel.innerHTML = content;
+            } else {
+                panel.style.display = 'none';
+            }
+        }
+
+        function updateUsageGuide() {
+            const usageText = document.getElementById('usage-text');
+            const analysisText = document.getElementById('analysis-text');
+            
+            if (!state.selectedNode) {
+                usageText.style.display = 'block';
+                analysisText.style.display = 'none';
+            } else if (state.selectedNode && !state.showSolution) {
+                usageText.style.display = 'none';
+                analysisText.style.display = 'block';
+                
+                let text = 'AI가 ';
+                if (state.selectedNode === 'phone') text += 'SKT 요금제';
+                else if (state.selectedNode === 'home') text += 'KB국민은행 월세 혜택';
+                else if (state.selectedNode === 'utility') text += '우리은행 전기료';
+                else text += '지출 패턴';
+                text += '을 분석하고 있습니다...';
+                
+                analysisText.textContent = text;
+            } else {
+                usageText.style.display = 'none';
+                analysisText.style.display = 'none';
+            }
+        }
+
+        // 이벤트 리스너 설정
+        document.getElementById('reset-btn').onclick = handleReset;
+
+        // 초기화
+        updateUI();
+    </script>
+</body>
+</html>
